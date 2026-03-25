@@ -1,0 +1,153 @@
+services:
+  # ---------------------------------------------------------------------------
+  # Databases (one per service)
+  # ---------------------------------------------------------------------------
+  user-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: users
+      POSTGRES_USER: camagru
+      POSTGRES_PASSWORD: camagru
+    volumes:
+      - user-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U camagru -d users"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  media-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: media
+      POSTGRES_USER: camagru
+      POSTGRES_PASSWORD: camagru
+    volumes:
+      - media-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U camagru -d media"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  gallery-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: gallery
+      POSTGRES_USER: camagru
+      POSTGRES_PASSWORD: camagru
+    volumes:
+      - gallery-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U camagru -d gallery"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  social-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: social
+      POSTGRES_USER: camagru
+      POSTGRES_PASSWORD: camagru
+    volumes:
+      - social-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U camagru -d social"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # Application services
+  # ---------------------------------------------------------------------------
+  user-service:
+    build: ./user-service
+    env_file:
+      - path: ./user-service/.env
+        required: false
+    environment:
+      DATABASE_URL: postgres://camagru:camagru@user-db:5432/users
+    depends_on:
+      user-db:
+        condition: service_healthy
+    expose:
+      - "3001"
+
+  media-service:
+    build: ./media-service
+    env_file:
+      - path: ./media-service/.env
+        required: false
+    environment:
+      DATABASE_URL: postgres://camagru:camagru@media-db:5432/media
+    depends_on:
+      media-db:
+        condition: service_healthy
+    expose:
+      - "3002"
+    volumes:
+      - media-uploads:/app/uploads
+
+  gallery-service:
+    build: ./gallery-service
+    env_file:
+      - path: ./gallery-service/.env
+        required: false
+    environment:
+      DATABASE_URL: postgres://camagru:camagru@gallery-db:5432/gallery
+      MEDIA_SERVICE_URL: http://media-service:3002
+    depends_on:
+      gallery-db:
+        condition: service_healthy
+    expose:
+      - "3003"
+
+  social-service:
+    build: ./social-service
+    env_file:
+      - path: ./social-service/.env
+        required: false
+    environment:
+      DATABASE_URL: postgres://camagru:camagru@social-db:5432/social
+      NOTIFICATION_SERVICE_URL: http://notification-service:3005
+    depends_on:
+      social-db:
+        condition: service_healthy
+    expose:
+      - "3004"
+
+  notification-service:
+    build: ./notification-service
+    env_file:
+      - path: ./notification-service/.env
+        required: false
+    expose:
+      - "3005"
+
+  api-gateway:
+    build: ./api-gateway
+    env_file:
+      - path: ./api-gateway/.env
+        required: false
+    environment:
+      USER_SERVICE_URL: http://user-service:3001
+      MEDIA_SERVICE_URL: http://media-service:3002
+      GALLERY_SERVICE_URL: http://gallery-service:3003
+      SOCIAL_SERVICE_URL: http://social-service:3004
+      NOTIFICATION_SERVICE_URL: http://notification-service:3005
+    ports:
+      - "3000:3000"
+    depends_on:
+      - user-service
+      - media-service
+      - gallery-service
+      - social-service
+      - notification-service
+
+volumes:
+  user-db-data:
+  media-db-data:
+  gallery-db-data:
+  social-db-data:
+  media-uploads:
