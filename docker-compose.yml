@@ -1,0 +1,74 @@
+services:
+
+  frontend:
+    build: ./frontend
+    container_name: frontend
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - gateway
+    networks:
+      - camagru-net
+
+  gateway:
+    build: ./gateway
+    container_name: gateway
+    ports:
+      - "8080:80"
+    env_file:
+      - .env
+    depends_on:
+      - image-editor
+      - post-manager
+      - auth-manager
+    networks:
+      - camagru-net
+
+  auth-manager:
+    build: ./services/authManager
+    container_name: authManager
+    env_file:
+      - .env
+    depends_on:
+      - database
+    networks:
+      - camagru-net
+
+  post-manager:
+    build: ./services/postManager
+    container_name: postManager
+    env_file:
+      - .env
+    depends_on:
+      - database
+    networks:
+      - camagru-net
+
+  image-editor:
+    build: ./services/imageEditor
+    container_name: imageEditor
+    env_file:
+      - .env
+    depends_on:
+      - database
+    networks:
+      - camagru-net
+
+  database:
+    build: ./services/database
+    container_name: database
+    env_file:
+      - .env
+    volumes:
+      - camagru-db:/var/lib/mysql
+    networks:
+      - camagru-net
+
+volumes:
+  camagru-db:
+
+networks:
+  camagru-net:
+    driver: bridge
